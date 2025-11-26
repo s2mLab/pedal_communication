@@ -1,7 +1,7 @@
 from .version import __version__
 
-from .adder import adder
+from .devices import *
 
 __all__ = [
-    adder.__name__,
+    devices.__all__,
 ]

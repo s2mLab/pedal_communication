@@ -14,5 +14,15 @@
             "env": {"PYTHONPATH": "${workspaceFolder}"},
             "cwd": "${fileDirname}"
         },
+        {
+            "name": "MockedDevice",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/runner/mocked_device.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYTHONPATH": "${workspaceFolder}"},
+            "cwd": "${fileDirname}"
+        },
     ]
 }

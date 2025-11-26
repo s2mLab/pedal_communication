@@ -1,15 +1,14 @@
-import pedal_communication
-import numpy as np
+from pedal_communication import TcpDevice, CommunicationProtocol
 
 
 def main():
-    a = np.array([1, 2, 3])
-    b = np.array([4, 5, 6])
-    result = pedal_communication.adder(a, b)
-    print(
-        f"The result of adding {a} and {b} is {result}.\n"
-        f'This is computed using pedal_communication.adder from version "{pedal_communication.__version__}"'
-    )
+    device = TcpDevice(host="localhost", port=1234)
+    device.connect()
+    device.send(CommunicationProtocol(message="coucou"))
+    for _ in range(50):
+        data = device.get_next_data()
+        print(data)
+    device.disconnect()
 
 
 if __name__ == "__main__":
