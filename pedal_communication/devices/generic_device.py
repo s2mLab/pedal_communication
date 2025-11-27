@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 
-from .communication_protocol import CommunicationProtocol
+import numpy as np
+
+from .communication_protocol import RequestProtocol
 
 
 class GenericDevice(ABC):
@@ -33,19 +35,19 @@ class GenericDevice(ABC):
         """
 
     @abstractmethod
-    def send(self, message: CommunicationProtocol) -> bool:
+    def send(self, message: RequestProtocol) -> bool:
         """
         Send message to the device.
 
         Parameters:
-            message (CommunicationProtocol): The message to send.
+            message: The message to send.
 
         Returns:
             bool: True if the message was sent successfully, False otherwise.
         """
 
     @abstractmethod
-    def get_next_data(self) -> CommunicationProtocol | None:
+    def get_next_data(self) -> np.ndarray | None:
         """
         Receive data from the device.
 
@@ -53,5 +55,5 @@ class GenericDevice(ABC):
             num_bytes (int): Number of bytes to receive.
 
         Returns:
-            CommunicationProtocol | None: The data received from the device, or None if no data was received.
+            AnswerProtocol | None: The data received from the device, or None if no data was received.
         """
