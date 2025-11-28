@@ -1,7 +1,7 @@
 import time
 import logging
 
-from pedal_communication import TcpDevice, Data, DataCollector
+from pedal_communication import PedalDevice, DataType, DataCollector
 
 
 def do_something(data_collector: DataCollector):
@@ -22,14 +22,14 @@ def main():
 
     # Connect to the device. If no real devices are available, one can run the script `mocked_device.py` to create a
     # local TCP mock device that simulates a real pedal device.
-    device = TcpDevice(host="localhost", port=6000)
+    device = PedalDevice()
     while not device.connect():
         time.sleep(0.1)
 
     data_collector = DataCollector(device)
 
     # Either start a live plot...
-    data_collector.show_live(Data.Type.FGx)
+    data_collector.show_live(DataType.FGx)
 
     # ...or just start collecting data in the background
     data_collector.start()

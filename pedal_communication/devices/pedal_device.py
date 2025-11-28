@@ -7,11 +7,11 @@ from .generic_device import GenericDevice
 from .communication_protocol import AnswerProtocol, RequestProtocol
 
 
-class TcpDevice(GenericDevice):
+class PedalDevice(GenericDevice):
     def __init__(
         self,
-        host: str,
-        port: int,
+        host: str = "localhost",
+        port: int = 6000,
         request_type: RequestProtocol.RequestType = RequestProtocol.RequestType.NORMAL,
         *args,
         **kwargs,

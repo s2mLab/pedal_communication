@@ -8,25 +8,26 @@ import numpy as np
 from ..devices.generic_device import GenericDevice
 
 
-class Data:
-    class Type(Enum):
-        FGx = 0
-        FGy = 1
-        FGz = 2
-        FDx = 3
-        FDy = 4
-        FDz = 5
-        MGx = 6
-        MGy = 7
-        MGz = 8
-        MDx = 9
-        MDy = 10
-        MDz = 11
-        TG = 12
-        TD = 13
-        AG = 14
-        AD = 15
+class DataType(Enum):
+    FGx = 0
+    FGy = 1
+    FGz = 2
+    FDx = 3
+    FDy = 4
+    FDz = 5
+    MGx = 6
+    MGy = 7
+    MGz = 8
+    MDx = 9
+    MDy = 10
+    MDz = 11
+    TG = 12
+    TD = 13
+    AG = 14
+    AD = 15
 
+
+class Data:
     def __init__(self, data: np.ndarray | None = None):
         if data is None:
             data = np.empty((0, self.columns_count + 1))
@@ -54,7 +55,7 @@ class Data:
     def clear(self) -> None:
         self._data = np.empty((0, self.columns_count + 1))
 
-    def show(self, data_type: Type, show_now: bool) -> None:
+    def show(self, data_type: DataType, show_now: bool) -> None:
         from matplotlib import pyplot as plt
 
         plt.plot(self.timestamp, self.data[:, data_type.value], label=data_type.name)
@@ -99,7 +100,7 @@ class DataCollector(threading.Thread):
 
         self._device.disconnect()
 
-    def show_live(self, data_type: Data.Type, window_len: int = 300) -> None:
+    def show_live(self, data_type: DataType, window_len: int = 300) -> None:
         import pyqtgraph as pg
         from pyqtgraph.Qt import QtWidgets, QtCore
 
