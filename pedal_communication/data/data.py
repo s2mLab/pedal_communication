@@ -48,8 +48,11 @@ class Data:
     def columns_count(self) -> int:
         return 14
 
+    def __getitem__(self, time_indices: int | slice | tuple | list) -> "Data":
+        return Data(data=self._data[time_indices, :])
+
     @property
-    def data(self) -> np.ndarray:
+    def values(self) -> np.ndarray:
         return self._data[:, 1:]
 
     def clear(self) -> None:
@@ -58,7 +61,7 @@ class Data:
     def show(self, data_type: DataType, show_now: bool) -> None:
         from matplotlib import pyplot as plt
 
-        plt.plot(self.timestamp, self.data[:, data_type.value], label=data_type.name)
+        plt.plot(self.timestamp, self.values[:, data_type.value], label=data_type.name)
         if show_now:
             plt.show()
 
@@ -111,8 +114,10 @@ class DataCollector(threading.Thread):
                 _ = self._queue.get()
 
             starting_index = len(self._data.timestamp) - window_len if len(self._data.timestamp) > window_len else 0
-            curve.setData(self._data.timestamp[starting_index:], self._data.data[starting_index:, data_type.value])
-            plot.setXRange(self._data.timestamp[starting_index], self._data.timestamp[-1])
+            data = self._data[starting_index:]
+
+            curve.setData(data.timestamp, data.values[:, data_type.value])
+            plot.setXRange(data.timestamp[0], data.timestamp[-1])
 
         app = QtWidgets.QApplication([])
         win = pg.GraphicsLayoutWidget(show=True, title="Data Live Plot")
