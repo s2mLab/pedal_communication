@@ -2,6 +2,7 @@ from enum import Enum
 import time
 import threading
 import queue
+from typing import Iterable
 
 import numpy as np
 
@@ -103,9 +104,15 @@ class DataCollector(threading.Thread):
 
         self._device.disconnect()
 
-    def show_live(self, data_type: DataType, window_len: int = 300) -> None:
+    def show_live(self, data_type: DataType | Iterable[DataType], window_len: int = 300) -> None:
         import pyqtgraph as pg
         from pyqtgraph.Qt import QtWidgets, QtCore
+
+        if not isinstance(data_type, Iterable):
+            data_type = [data_type]
+
+        data_indices = [dt.value for dt in data_type]
+        colors = ["r", "g", "b", "c", "m", "y", "w"]
 
         def update():
             # read all items currently available
@@ -116,13 +123,14 @@ class DataCollector(threading.Thread):
             starting_index = len(self._data.timestamp) - window_len if len(self._data.timestamp) > window_len else 0
             data = self._data[starting_index:]
 
-            curve.setData(data.timestamp, data.values[:, data_type.value])
+            for curve, data_index in zip(curves, data_indices):
+                curve.setData(data.timestamp, data.values[:, data_index])
             plot.setXRange(data.timestamp[0], data.timestamp[-1])
 
         app = QtWidgets.QApplication([])
         win = pg.GraphicsLayoutWidget(show=True, title="Data Live Plot")
         plot = win.addPlot()
-        curve = plot.plot(pen="y")
+        curves = [plot.plot(pen=colors[i]) for _, i in enumerate(data_indices)]
 
         timer = QtCore.QTimer()
         timer.timeout.connect(update)

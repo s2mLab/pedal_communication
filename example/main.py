@@ -29,7 +29,7 @@ def main():
     data_collector = DataCollector(device)
 
     # Either start a live plot...
-    data_collector.show_live(DataType.FGx)
+    data_collector.show_live([DataType.FGx, DataType.FGy])
 
     # ...or just start collecting data in the background
     data_collector.start()
