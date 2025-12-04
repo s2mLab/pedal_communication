@@ -65,6 +65,8 @@ class Data:
             if data.shape[1] != self.columns_count + 1:
                 raise ValueError(f"Data must have {self.columns_count + 1} columns.")
         self._data = data
+        if len(self._data.shape) == 1:
+            self._data = self._data[None, :]
 
     def add_data(self, new_data: np.ndarray) -> None:
         self._data = np.concatenate((self._data, new_data), axis=0)
