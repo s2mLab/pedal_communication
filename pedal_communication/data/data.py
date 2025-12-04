@@ -10,17 +10,17 @@ from ..devices.generic_device import GenericDevice
 
 
 class DataType(Enum):
-    A0 = 0
-    A1 = 1
-    A2 = 2
-    A3 = 3
-    A4 = 4
-    A5 = 5
-    A6 = 6
+    A0 = 0  # Fx gauche - Force vers l'avant lorsque la pédale a le fil par en bas
+    A1 = 1  # Fy gauche - Force sortant du pédalier vers la gauche
+    A2 = 2  # Fz gauche
+    A3 = 3  # Mx gauche
+    A4 = 4  # My gauche
+    A5 = 5  # Mz gauche
+    A6 = 6  # Mz gauche
     A7 = 7
-    A8 = 8
-    A9 = 9
-    A10 = 10
+    A8 = 8  # Fx droit
+    A9 = 9  # Fy droit
+    A10 = 10  # Fz droit
     A11 = 11
     A12 = 12
     A13 = 13
@@ -28,8 +28,8 @@ class DataType(Enum):
     A15 = 15
     A16 = 16
     A17 = 17
-    A18 = 18
-    A19 = 19
+    A18 = 18  # Ange du pédalier en radiant
+    A19 = 19  # Temps
     A20 = 20
     A21 = 21
     A22 = 22
@@ -45,10 +45,10 @@ class DataType(Enum):
     A32 = 32
     A33 = 33
     A34 = 34
-    A35 = 35
-    A36 = 36
-    A37 = 37
-    A38 = 38
+    A35 = 35  # vitesse du pédalier positif vers l'avant
+    A36 = 36  # puissance pedale gauche
+    A37 = 37  # puissance pedale droite
+    A38 = 38  # puissance totale
     A39 = 39
     A40 = 40
     A41 = 41
@@ -159,7 +159,7 @@ class DataCollector(threading.Thread):
         app = QtWidgets.QApplication([])
         win = pg.GraphicsLayoutWidget(show=True, title="Data Live Plot")
         plot = win.addPlot()
-        curves = [plot.plot(pen=colors[i]) for _, i in enumerate(data_indices)]
+        curves = [plot.plot(pen=colors[idx]) for idx, i in enumerate(data_indices)]
 
         timer = QtCore.QTimer()
         timer.timeout.connect(update)
