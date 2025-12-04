@@ -29,7 +29,7 @@ def main():
     data_collector = DataCollector(device)
 
     # Either start a live plot...
-    data_collector.show_live([DataType.FGx, DataType.FGy])
+    data_collector.show_live([DataType.A0, DataType.A1])
     # FGx = 0 Force vers l'avant lorsque la pédale a le fil par en bas
 
     # data_collector.show_live(DataType.FGy)
