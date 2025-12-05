@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from .communication_protocol import RequestProtocol
+from .generic_communication_protocol import GenericRequestProtocol
 
 
 class GenericDevice(ABC):
@@ -35,7 +35,7 @@ class GenericDevice(ABC):
         """
 
     @abstractmethod
-    def send(self, message: RequestProtocol) -> bool:
+    def send(self, message: GenericRequestProtocol) -> bool:
         """
         Send message to the device.
 

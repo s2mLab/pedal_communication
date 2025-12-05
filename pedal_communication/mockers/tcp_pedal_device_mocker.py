@@ -5,7 +5,8 @@ import time
 
 import numpy as np
 
-from ..devices.communication_protocol import RequestProtocol
+from ..devices.tpc_communication_protocol import TcpRequestProtocol
+from ..misc import recv_exact
 
 
 class TcpPedalDeviceMocker:
@@ -20,7 +21,7 @@ class TcpPedalDeviceMocker:
         self._frequency = 50  # Hz
         self._time_vector_template = np.arange(0, 10 * 1 / self._frequency, 1 / self._frequency)
 
-        self._request_protocol_cache = RequestProtocol(request_type=RequestProtocol.RequestType.NORMAL)
+        self._request_protocol_cache = TcpRequestProtocol(request_type=TcpRequestProtocol.RequestType.NORMAL)
 
     def run(self):
         """
@@ -35,14 +36,14 @@ class TcpPedalDeviceMocker:
 
         # Wait synchronously for client commands
         int_size = struct.calcsize("!i")
-        commands_length = self._connection.recv(int_size)
+        commands_length = recv_exact(self._connection, int_size)
         if not commands_length:
             logger.info("Client disconnected.")
             self._stop_listening()
             return False
         commands_length = struct.unpack("!i", commands_length)[0]
 
-        commands_data = self._connection.recv(commands_length)
+        commands_data = recv_exact(self._connection, commands_length)
         if not commands_data:
             logger.info("Client disconnected.")
             self._stop_listening()

@@ -1,8 +1,8 @@
 from .tcp_pedal_device import TcpPedalDevice
-from .communication_protocol import RequestProtocol, AnswerProtocol
+from .tpc_communication_protocol import TcpRequestProtocol, TcpResponseProtocol
 
 __all__ = [
     TcpPedalDevice.__name__,
-    RequestProtocol.__name__,
-    AnswerProtocol.__name__,
+    TcpRequestProtocol.__name__,
+    TcpResponseProtocol.__name__,
 ]

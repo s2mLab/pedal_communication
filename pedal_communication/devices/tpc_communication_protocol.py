@@ -3,10 +3,11 @@ import struct
 
 import numpy as np
 
+from .generic_communication_protocol import GenericRequestProtocol
 from ..misc import classproperty
 
 
-class RequestProtocol:
+class TcpRequestProtocol(GenericRequestProtocol):
     class RequestType(Enum):
         NORMAL = 0
         FAST = 1
@@ -52,7 +53,7 @@ class RequestProtocol:
 
         # Parse the data into bytes
         self._commands_lengths = struct.pack("!i", len(self._commands) * len(self._commands[0]))
-        self._commands_as_bytes = RequestProtocol._command_to_bytes(self._commands)
+        self._commands_as_bytes = TcpRequestProtocol._command_to_bytes(self._commands)
 
     @staticmethod
     def _command_to_bytes(commands: list[list[int]]) -> bytes:
@@ -68,7 +69,7 @@ class RequestProtocol:
         return self._commands_lengths + self._commands_as_bytes
 
 
-class AnswerProtocol:
+class TcpResponseProtocol:
     @classproperty
     def header_length(cls) -> int:
         return 4
@@ -79,7 +80,7 @@ class AnswerProtocol:
 
     @staticmethod
     def get_data_length_from_header(header_data: bytes) -> int:
-        if len(header_data) != AnswerProtocol.header_length:
+        if len(header_data) != TcpResponseProtocol.header_length:
             raise ValueError("Header data length does not match expected header length.")
 
         return struct.unpack("!i", header_data)[0] * 8  # each double is 8 bytes
@@ -89,4 +90,4 @@ class AnswerProtocol:
         data_length = len(data) // 8
 
         # Unpack double in network standard (Big endian)
-        return np.reshape(struct.unpack(f"!{data_length}d", data), AnswerProtocol.data_shape).T
+        return np.reshape(struct.unpack(f"!{data_length}d", data), TcpResponseProtocol.data_shape).T

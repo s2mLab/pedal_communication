@@ -4,7 +4,8 @@ import socket
 import numpy as np
 
 from .generic_device import GenericDevice
-from .communication_protocol import AnswerProtocol, RequestProtocol
+from .tpc_communication_protocol import TcpResponseProtocol, TcpRequestProtocol
+from ..misc import recv_exact
 
 
 class TcpPedalDevice(GenericDevice):
@@ -12,7 +13,7 @@ class TcpPedalDevice(GenericDevice):
         self,
         host: str = "localhost",
         port: int = 6000,
-        request_type: RequestProtocol.RequestType = RequestProtocol.RequestType.NORMAL,
+        request_type: TcpRequestProtocol.RequestType = TcpRequestProtocol.RequestType.NORMAL,
         *args,
         **kwargs,
     ):
@@ -20,7 +21,7 @@ class TcpPedalDevice(GenericDevice):
         self._host = host
         self._port = port
 
-        self._request = RequestProtocol(request_type=request_type)
+        self._request = TcpRequestProtocol(request_type=request_type)
         self._socket: socket.socket | None = None
 
         self._previous_last_timestamp: float | None = None
@@ -65,7 +66,7 @@ class TcpPedalDevice(GenericDevice):
 
         return self._socket is None
 
-    def send(self, data: RequestProtocol) -> bool:
+    def send(self, data: TcpRequestProtocol) -> bool:
         if self._socket is None:
             return False
 
@@ -85,16 +86,16 @@ class TcpPedalDevice(GenericDevice):
         try:
             logger = logging.getLogger(__name__)
             logger.debug(f"Receiving data from TCP device at {self._host}:{self._port}")
-            header_length = AnswerProtocol.header_length
-            header = self._socket.recv(header_length)
+            header_length = TcpResponseProtocol.header_length
+            header = recv_exact(self._socket, header_length)
             if not header:
                 return None
-            data_length = AnswerProtocol.get_data_length_from_header(header)
-            data = self._socket.recv(data_length)
+            data_length = TcpResponseProtocol.get_data_length_from_header(header)
+            data = recv_exact(self._socket, data_length)
             if not data:
                 return None
 
-            output = AnswerProtocol.deserialize(data)
+            output = TcpResponseProtocol.deserialize(data)
             first_timestamp = output[0, 0]
             last_timestamp = output[-1, 0]
 
