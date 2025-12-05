@@ -47,7 +47,7 @@ class GenericDevice(ABC):
         """
 
     @abstractmethod
-    def get_next_data(self) -> np.ndarray | None:
+    def get_last_data(self) -> np.ndarray | None:
         """
         Receive data from the device.
 

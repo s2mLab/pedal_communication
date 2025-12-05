@@ -142,7 +142,7 @@ class DataCollector(threading.Thread):
                 while not self._is_running:
                     condition.wait()
 
-            data = self._device.get_next_data()
+            data = self._device.get_last_data()
             if data is not None:
                 self._data.add_data(data)
                 self._queue.put(True)

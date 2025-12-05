@@ -121,7 +121,7 @@ class UdpPedalDeviceMocker:
                 # expect JSON payload with fields decribed in UdpCommunicationProtocol for OperationalCode.SET_CONFIG
                 config = json.loads(payload.decode("utf-8"))
                 self._frequency = int(config.get("frequency", self._frequency))
-                self._sample_per_block = float(config.get("sample_window", self._sample_per_block))
+                self._sample_per_block = float(config.get("sample_per_block", self._sample_per_block))
                 self._channels_to_serve = config.get("channels", [])
                 udp_port = int(config.get("udp_port"))
 
@@ -222,7 +222,7 @@ class UdpPedalDeviceMocker:
     def _stream_data_loop(self):
         """
         Stream frames to UDP target at self.frequency.
-        Each frame contains sample_count = int(sample_window * frequency) samples.
+        Each frame contains sample_count = int(sample_per_block * frequency) samples.
         """
         if not self._udp_target:
             _logger.error("No UDP target configured; aborting stream")

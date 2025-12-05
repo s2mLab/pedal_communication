@@ -77,7 +77,7 @@ class TcpPedalDevice(GenericDevice):
         except socket.error:
             return False
 
-    def get_next_data(self) -> np.ndarray | None:
+    def get_last_data(self) -> np.ndarray | None:
         if self._socket is None:
             return None
 

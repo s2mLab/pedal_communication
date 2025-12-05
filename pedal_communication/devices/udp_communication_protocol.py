@@ -35,8 +35,8 @@ UdpProtocolConstants.OperationalCode.SET_CONFIG:
 {
     "udp_port": 6001            // UDP port for data streaming
     "frequency": 50.0,          // Sampling frequency in Hz
-    "sample_window": 10,        // Samples per block
-    "channels": <int>[],        // A list of the channel's code to activate
+    "sample_per_block": 10,     // Samples per block
+    "channels": list<int>[],    // A list of the channel's code to activate
 }
 --------------------------------
 
@@ -52,13 +52,17 @@ double channel_N                // 8 bytes (N = channel_count requested by clien
 """
 
 from enum import Enum
+import json
+import logging
 import struct
+from typing import Iterable, Tuple
 
 import numpy as np
 
 from .generic_communication_protocol import GenericRequestProtocol
-from ..data import DataType
-from ..misc import classproperty
+
+
+_logger = logging.getLogger(__name__)
 
 
 class UdpProtocolConstants:
@@ -74,8 +78,8 @@ class UdpProtocolConstants:
     control_header_format = "!H H H I"
     control_header_len = struct.calcsize(control_header_format)
 
-    # Data frame header (UDP): magic_code(2), version(2), flags(2), sequence_id(4), device_timestamp(8), sample_count(2), channel_count(2)
-    data_header_format = "!H H H I d H H"
+    # Data frame header (UDP): magic_code(2), version(2), sequence_id(4), sample_count(2), channel_count(2)
+    data_header_format = "!H H I H H"
     data_header_len = struct.calcsize(data_header_format)
 
     # Operational codes for control messages
@@ -90,7 +94,33 @@ class UdpProtocolConstants:
 
 
 class UdpRequestProtocol(GenericRequestProtocol):
-    class Command(Enum):
+    pass
+
+
+class UdpCommandProtocol(UdpRequestProtocol):
+    def __init__(self, operational_code: UdpProtocolConstants.OperationalCode):
+        self._operational_code = operational_code
+
+    @property
+    def serialized(self) -> bytes:
+        command = {
+            "udp_port": self._udp_port,
+        }
+        payload = json.dumps(command).encode("utf-8")
+
+        header = struct.pack(
+            UdpProtocolConstants.control_header_format,
+            UdpProtocolConstants.control_magic_code,
+            UdpProtocolConstants.control_version,
+            UdpProtocolConstants.OperationalCode.SET_CONFIG.value,
+            len(payload),
+        )
+
+        return header + payload
+
+
+class UdpConfigurationProtocol(UdpRequestProtocol):
+    class Channels(Enum):
         FX_LEFT = 0
         FY_LEFT = 1
         FZ_LEFT = 2
@@ -137,64 +167,74 @@ class UdpRequestProtocol(GenericRequestProtocol):
         A43 = 43
         A44 = 44
 
-    def __init__(self, request_type: RequestType | None = None, command: list[Command] | None = None):
-        if command is not None and request_type is not None:
-            raise ValueError("Specify either command or request_type, not both.")
-        if command is None:
-            if request_type == self.RequestType.NORMAL:
-                self._commands = [[i, j] for i in range(43) for j in range(10)]
-            elif request_type == self.RequestType.FAST:
-                self._commands = [[i, j] for i in range(43) for j in range(10)]
-            else:
-                raise ValueError("Unsupported request type.")
-        else:
-            self._commands = [cmd.value for cmd in command]
+    def __init__(
+        self,
+        channels: Channels | Iterable[Channels] = None,
+        udp_port: int = None,
+    ):
+        """
+        Prepare a configuration to the UDP device. If channels is None, all available channels are requested.
+        """
 
-        if not self._commands:
-            raise ValueError("Command cannot be empty.")
+        self._udp_port = udp_port
 
-        # Make sure the self._command is a rectangular list
-        row_lengths = {len(row) for row in self._commands}
-        if len(row_lengths) != 1:
-            raise ValueError("Command must be a rectangular list.")
-
-        # Parse the data into bytes
-        self._commands_lengths = struct.pack("!i", len(self._commands) * len(self._commands[0]))
-        self._commands_as_bytes = UdpRequestProtocol._command_to_bytes(self._commands)
-
-    @staticmethod
-    def _command_to_bytes(commands: list[list[int]]) -> bytes:
-        commands_as_bytes = b""
-        for commands_row in commands:
-            for command in commands_row:
-                # we chose unsigned char 8 (range from 0 to 511) so each x or y coordinates can be store on 1 byte
-                commands_as_bytes += struct.pack("!B", command)
-        return commands_as_bytes
+        if channels is None:
+            channels = list(UdpConfigurationProtocol.Channels)
+        elif isinstance(channels, UdpConfigurationProtocol.Channels):
+            channels = [channels]
+        self._channels = list(channels)
 
     @property
     def serialized(self) -> bytes:
-        return self._commands_lengths + self._commands_as_bytes
+        configuration = {
+            "udp_port": self._udp_port,
+            "channels": self._channels,
+            "frequency": None,
+            "sample_per_block": None,
+        }
+        payload = json.dumps(configuration).encode("utf-8")
+
+        header = struct.pack(
+            UdpProtocolConstants.control_header_format,
+            UdpProtocolConstants.control_magic_code,
+            UdpProtocolConstants.control_version,
+            UdpProtocolConstants.OperationalCode.SET_CONFIG.value,
+            len(payload),
+        )
+
+        return header + payload
 
 
 class UdpResponseProtocol:
-    @classproperty
-    def header_length(cls) -> int:
-        return UdpProtocolConstants.data_header_len
-
-    @classproperty
-    def data_shape(cls) -> tuple[int, int]:
-        return (-1, 10)
-
     @staticmethod
-    def get_data_length_from_header(header_data: bytes) -> int:
-        if len(header_data) != UdpResponseProtocol.header_length:
-            raise ValueError("Header data length does not match expected header length.")
+    def deserialize(data: bytes, previous_sequence_id: int = None) -> Tuple[np.ndarray | None, int]:
+        if previous_sequence_id is None:
+            previous_sequence_id = -1
 
-        return struct.unpack("!i", header_data)[0] * 8  # each double is 8 bytes
+        if len(data) < UdpProtocolConstants.data_header_len:
+            _logger.warning("Short data packet")
+            return None, previous_sequence_id
 
-    @staticmethod
-    def deserialize(data: bytes) -> np.ndarray:
-        data_length = len(data) // 8
+        # parse header
+        data_hdr = data[: UdpProtocolConstants.data_header_len]
+        (magic, ver, sequence_id, sample_count, channel_count) = struct.unpack(
+            UdpProtocolConstants.data_header_format, data_hdr
+        )
+        if magic != UdpProtocolConstants.data_magic_code and ver != UdpProtocolConstants.data_version:
+            _logger.warning("Bad data magic")
+            return None, previous_sequence_id
 
-        # Unpack double in network standard (Big endian)
-        return np.reshape(struct.unpack(f"!{data_length}d", data), UdpResponseProtocol.data_shape).T
+        payload = data[UdpProtocolConstants.data_header_len :]
+        expected_doubles = sample_count * channel_count
+        if len(payload) < expected_doubles * 8:
+            _logger.warning(f"Incomplete payload: got {len(payload)} expected {expected_doubles*8}")
+            return None, previous_sequence_id
+
+        if previous_sequence_id > sequence_id:
+            _logger.warning(f"Out of order packet: got {sequence_id} expected > {previous_sequence_id}")
+            return None, previous_sequence_id
+
+        # unpack all doubles
+        fmt = f"!{expected_doubles}d"
+        values = struct.unpack(fmt, payload[: expected_doubles * 8])
+        return np.array(values, dtype=np.float64).reshape((sample_count, channel_count)), sequence_id

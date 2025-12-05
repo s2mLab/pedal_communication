@@ -75,7 +75,7 @@ class TcpResponseProtocol:
         return 4
 
     @classproperty
-    def data_shape(cls) -> tuple[int, int]:
+    def _data_shape(cls) -> tuple[int, int]:
         return (-1, 10)
 
     @staticmethod
@@ -90,4 +90,4 @@ class TcpResponseProtocol:
         data_length = len(data) // 8
 
         # Unpack double in network standard (Big endian)
-        return np.reshape(struct.unpack(f"!{data_length}d", data), TcpResponseProtocol.data_shape).T
+        return np.reshape(struct.unpack(f"!{data_length}d", data), TcpResponseProtocol._data_shape).T

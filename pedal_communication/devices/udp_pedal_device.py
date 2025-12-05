@@ -1,98 +1,27 @@
-import json
 import logging
 import socket
 import struct
 import time
+import threading
+from typing import Tuple
 
 import numpy as np
 
 from .generic_device import GenericDevice
-from .udp_communication_protocol import UdpResponseProtocol, UdpRequestProtocol, UdpProtocolConstants
+from .udp_communication_protocol import (
+    UdpResponseProtocol,
+    UdpRequestProtocol,
+    UdpCommandProtocol,
+    UdpProtocolConstants,
+    UdpConfigurationProtocol,
+)
 from ..misc import recv_exact
 
 _logger = logging.getLogger("ClientExample")
 
 
-def build_control_header(operational_code: int, payload_len: int, version: int = 1) -> bytes:
-    return struct.pack(
-        UdpProtocolConstants.control_header_format,
-        UdpProtocolConstants.control_magic_code,
-        UdpProtocolConstants.control_version,
-        operational_code,
-        payload_len,
-    )
-
-
 def parse_control_header(data: bytes):
     return struct.unpack(UdpProtocolConstants.control_header_format, data)
-
-
-def run_example(server_host="127.0.0.1", control_port=6000, local_udp_port=6001):
-
-    # 3) Send SET_CONFIG (tell server frequency, channels, which UDP port to stream to)
-    cfg = {"frequency": 50, "sample_window": 0.2, "channels": 15, "udp_port": local_udp_port}
-    payload = json.dumps(cfg).encode("utf-8")
-    hdr = build_control_header(OPCODE["SET_CONFIG"], len(payload))
-    ctrl.sendall(hdr + payload)
-
-    # read response
-    hdr = recv_exact(ctrl, CTRL_HEADER_LEN)
-    magic, version, opcode, payload_len = parse_control_header(hdr)
-    resp = recv_exact(ctrl, payload_len) if payload_len else b""
-    logger.info(f"SET_CONFIG response opcode={opcode} payload={resp}")
-
-    # 4) START streaming
-    hdr = build_control_header(OPCODE["START"], 0)
-    ctrl.sendall(hdr)
-    hdr = recv_exact(ctrl, CTRL_HEADER_LEN)
-    _, _, opcode, payload_len = parse_control_header(hdr)
-    resp = recv_exact(ctrl, payload_len) if payload_len else b""
-    logger.info(f"START response opcode={opcode} payload={resp}")
-
-    # 5) Receive some UDP frames and parse
-    last_seq = None
-    try:
-        while True:
-            pkt, addr = udp_sock.recvfrom(65536)
-            if len(pkt) < DATA_HEADER_LEN:
-                logger.warning("Short packet")
-                continue
-            # parse header
-            data_hdr = pkt[:DATA_HEADER_LEN]
-            (magic, ver, flags, seq, ts, sample_count, channel_count) = struct.unpack(DATA_HEADER_FMT, data_hdr)
-            if magic != 0xDA7A:
-                logger.warning("Bad data magic")
-                continue
-
-            payload = pkt[DATA_HEADER_LEN:]
-            expected_doubles = sample_count * channel_count
-            if len(payload) < expected_doubles * 8:
-                logger.warning(f"Incomplete payload: got {len(payload)} expected {expected_doubles*8}")
-                continue
-
-            # unpack all doubles
-            fmt = f"!{expected_doubles}d"
-            values = struct.unpack(fmt, payload[: expected_doubles * 8])
-            arr = np.array(values, dtype=np.float64).reshape((sample_count, channel_count))
-
-            # detect gap
-            if last_seq is not None and seq != ((last_seq + 1) & 0xFFFFFFFF):
-                logger.warning(f"Gap detected: last={last_seq} got={seq}")
-            last_seq = seq
-
-            # Example use: print first sample time and first channel values
-            t0 = arr[0, 0]
-            logger.info(f"Frame seq={seq} ts={ts:.6f} sample_count={sample_count} channels={channel_count} t0={t0:.6f}")
-
-            # client logic: process arr ...
-    except KeyboardInterrupt:
-        logger.info("Stopping client")
-    finally:
-        # tell server to stop gracefully
-        hdr = build_control_header(OPCODE["STOP"], 0)
-        ctrl.sendall(hdr)
-        ctrl.close()
-        udp_sock.close()
 
 
 class UdpPedalDevice(GenericDevice):
@@ -105,17 +34,20 @@ class UdpPedalDevice(GenericDevice):
         self._control_port = control_port
         self._data_port = data_port
 
-        # self._request = UdpRequestProtocol()
-        # self._socket: socket.socket | None = None
+        self._control_socket: socket.socket = None
+        self._data_socket: socket.socket = None
 
-        # self._previous_last_timestamp: float | None = None
+        self._data_last_received: np.ndarray = None
+        self._data_stop_event = threading.Event()
+        self._data_thread = threading.Thread(target=self._listen_udp_data, daemon=True)
+        self._data_thread.start()
 
     @property
     def is_connected(self) -> bool:
         """
         Indicates whether the device is currently connected.
         """
-        return self._socket is not None
+        return self._control_socket is not None and self._data_socket is not None
 
     @property
     def host(self) -> str:
@@ -127,75 +59,119 @@ class UdpPedalDevice(GenericDevice):
 
     def connect(self) -> bool:
         _logger.debug(f"Attempting to connect to TCP device at {self._server_host}:{self._control_port}")
-        if self._socket is not None:
+        if self.is_connected:
             _logger.debug("Already connected to TCP device.")
             return True  # Already connected
 
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            self._socket.connect((self._host, self._port))
-        except socket.error:
-            logger.error(f"Failed to connect to TCP device at {self._host}:{self._port}")
-            self._socket = None
-
         # 1) Connect TCP control channel
-        ctrl = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        ctrl.connect((server_host, control_port))
+        self._control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            self._control_socket.connect((self._server_host, self._control_port))
+        except socket.error:
+            _logger.error(f"Failed to connect to TCP device at {self._host}:{self._port}")
+            self._control_socket = None
 
         # 2) Open UDP socket to receive data
-        udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        udp_sock.bind(("0.0.0.0", local_udp_port))
-        udp_sock.settimeout(2.0)
+        self._data_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._data_socket.bind(("0.0.0.0", self._data_port))
+        self._data_socket.settimeout(2.0)
 
-        return self._socket is not None
+        # 3) Send SET_CONFIG (tell server frequency, channels, which UDP port to stream to)
+        is_success, _ = self.send(UdpConfigurationProtocol(udp_port=self._data_port))
+        if not is_success:
+            _logger.error("Failed to send configuration to UDP device.")
+            self.disconnect()
+            return False
+
+        # 4) Request START streaming
+        is_success, _ = self.send(UdpCommandProtocol(UdpProtocolConstants.OperationalCode.START))
+        if not is_success:
+            _logger.error("Failed to start streaming from UDP device.")
+            self.disconnect()
+            return False
+
+        return True
 
     def disconnect(self) -> bool:
-        if self._socket is not None:
-            logger = logging.getLogger(__name__)
-            logger.debug(f"Disconnecting from TCP device at {self._host}:{self._port}")
-            self._socket.close()
-            self._socket = None
+        _logger.debug(f"Disconnecting from {self._server_host}")
+        self.send(UdpCommandProtocol(UdpProtocolConstants.OperationalCode.STOP))
 
-        return self._socket is None
+        if self._control_socket is not None:
+            _logger = logging.getLogger(__name__)
+            self._control_socket.close()
+            self._control_socket = None
 
-    def send(self, data: TcpRequestProtocol) -> bool:
-        if self._socket is None:
+        if self._data_socket is not None:
+            self._data_socket.close()
+            self._data_socket = None
+
+        return not self.is_connected
+
+    def dispose(self) -> None:
+        """
+        Terminate the current object and release all associated resources. Once disposed, the object cannot be used anymore.
+        """
+        self.disconnect()
+
+        if self._data_thread.is_alive():
+            self._data_stop_event.set()
+            self._data_thread.join()
+
+    def send(self, command: UdpRequestProtocol) -> Tuple[bool, bytes]:
+        if not self.is_connected:
             return False
 
         try:
-            self._socket.sendall(data.serialized)
-            return True
+            self._control_socket.sendall(command.serialized)
         except socket.error:
             return False
 
-    def get_next_data(self) -> np.ndarray | None:
-        if self._socket is None:
-            return None
+        return self._parse_command_response()
 
-        # First, we need to send the formating of the data
-        self.send(data=self._request)
+    def _parse_command_response(self) -> Tuple[bool, bytes] | bool:
+        # read response
+        header = recv_exact(self._control_socket, UdpProtocolConstants.control_header_len)
+        magic, version, operational_code, payload_len = struct.unpack(
+            UdpProtocolConstants.control_header_format, header
+        )
+        # Sanity check
+        if magic != UdpProtocolConstants.control_magic_code or version != UdpProtocolConstants.control_version:
+            _logger.error(f"Unsupported control protocol version: {version}")
+            return False
 
+        # Get the payload (empty string if payload_len == 0)
+        payload = recv_exact(self._control_socket, payload_len)
+        _logger.info(f"SET_CONFIG response opcode={operational_code} payload={payload}")
+
+        return operational_code == UdpProtocolConstants.OperationalCode.ACK.value, payload
+
+    def _listen_udp_data(self) -> None:
+        """
+        Main loop that listens to UDP data packets from the device. It is designed to run in a separate thread, but to
+        update the data in the main thread. This is currently NOT thread-safe and could be improved in the future.
+        """
+
+        previous_sequence_id = None
         try:
-            logger = logging.getLogger(__name__)
-            logger.debug(f"Receiving data from TCP device at {self._host}:{self._port}")
-            header_length = TcpResponseProtocol.header_length
-            header = recv_exact(self._socket, header_length)
-            if not header:
-                return None
-            data_length = TcpResponseProtocol.get_data_length_from_header(header)
-            data = recv_exact(self._socket, data_length)
-            if not data:
-                return None
+            while not self._data_stop_event.is_set():
+                # Wait until connected
+                if self._data_socket is None:
+                    time.sleep(0.1)
+                    continue
 
-            output = TcpResponseProtocol.deserialize(data)
-            first_timestamp = output[0, 0]
-            last_timestamp = output[-1, 0]
+                data_packets, _ = self._data_socket.recvfrom(65536)
+                data, previous_sequence_id = UdpResponseProtocol.deserialize(
+                    data_packets, previous_sequence_id=previous_sequence_id
+                )
+                if data is not None:
+                    self._data_last_received = data
 
-            if self._previous_last_timestamp is not None and first_timestamp < self._previous_last_timestamp:
-                return None
-            self._previous_last_timestamp = last_timestamp
+        except:
+            pass
 
-            return output
+        _logger.info("UDP data listener thread exiting")
 
-        except socket.error:
+    def get_last_data(self) -> np.ndarray | None:
+        if not self.is_connected:
             return None
+        return self._data_last_received
