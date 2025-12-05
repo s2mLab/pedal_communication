@@ -57,6 +57,7 @@ import struct
 import numpy as np
 
 from .generic_communication_protocol import GenericRequestProtocol
+from ..data import DataType
 from ..misc import classproperty
 
 
@@ -89,27 +90,52 @@ class UdpProtocolConstants:
 
 
 class UdpRequestProtocol(GenericRequestProtocol):
-    class RequestType(Enum):
-        NORMAL = 0
-        FAST = 1
-
     class Command(Enum):
-        FGx = [0, 0]
-        FGy = [0, 1]
-        FGz = [0, 2]
-        FDx = [0, 3]
-        FDy = [0, 4]
-        FDz = [0, 5]
-        MGx = [2, 0]
-        MGy = [2, 1]
-        MGz = [2, 2]
-        MDx = [2, 3]
-        MDy = [2, 4]
-        MDz = [2, 5]
-        TG = [4, 0]
-        TD = [4, 1]
-        AG = [6, 0]
-        AD = [6, 1]
+        FX_LEFT = 0
+        FY_LEFT = 1
+        FZ_LEFT = 2
+        MX_LEFT = 3
+        MY_LEFT = 4
+        MZ_LEFT = 5
+        A6 = 6
+        A7 = 7
+        FX_RIGHT = 8
+        FY_RIGHT = 9
+        FZ_RIGHT = 10
+        A11 = 11
+        A12 = 12
+        A13 = 13
+        A14 = 14
+        A15 = 15
+        A16 = 16
+        A17 = 17
+        PEDAL_ANGLE = 18
+        TIME = 19
+        A20 = 20
+        A21 = 21
+        A22 = 22
+        A23 = 23
+        A24 = 24
+        A25 = 25
+        A26 = 26
+        A27 = 27
+        A28 = 28
+        A29 = 29
+        A30 = 30
+        A31 = 31
+        A32 = 32
+        A33 = 33
+        A34 = 34
+        PEDALLING_SPEED = 35
+        POWER_LEFT = 36
+        POWER_RIGHT = 37
+        POWER_TOTAL = 38
+        A39 = 39
+        A40 = 40
+        A41 = 41
+        A42 = 42
+        A43 = 43
+        A44 = 44
 
     def __init__(self, request_type: RequestType | None = None, command: list[Command] | None = None):
         if command is not None and request_type is not None:

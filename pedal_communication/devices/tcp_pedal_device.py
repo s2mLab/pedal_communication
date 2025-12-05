@@ -31,6 +31,7 @@ class TcpPedalDevice(GenericDevice):
         """
         Indicates whether the device is currently connected.
         """
+        return self._socket is not None
 
     @property
     def host(self) -> str:

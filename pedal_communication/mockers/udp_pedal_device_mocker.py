@@ -1,19 +1,16 @@
+import json
+import logging
 import socket
 import struct
 import threading
 import time
-import json
-import logging
 from typing import Tuple, List
-import numpy as np
 
+import numpy as np
 
 from ..devices.udp_communication_protocol import UdpProtocolConstants
 from ..misc import recv_exact
 
-
-# Declare some helpers
-logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger("DeviceMock")
 
 
