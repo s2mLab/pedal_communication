@@ -10,17 +10,33 @@ from ..devices.generic_device import GenericDevice
 
 
 class DataType(Enum):
-    A0 = 0  # Fx gauche - Force vers l'avant lorsque la pédale a le fil par en bas
-    A1 = 1  # Fy gauche - Force sortant du pédalier vers la gauche
-    A2 = 2  # Fz gauche
-    A3 = 3  # Mx gauche
-    A4 = 4  # My gauche
-    A5 = 5  # Mz gauche
-    A6 = 6  # Mz gauche
+    """
+    For the left pedal:
+    X Axis points forward if the pedal is vertically oriented with the cable pointing downwards.
+    Y Axis points to the left side of the pedal, perpendicular to the chain ring.
+    Z Axis points upward in line with the long axis of the pedal.
+
+    For the right pedal:
+    Same as left, but Y Axis points to the right side of the pedal and Z Axis points downward.
+
+    Angles are given in radians.
+
+    Speed are positive when pedaling forward.
+
+    The AX values are unknown for now.
+    """
+
+    FX_LEFT = 0
+    FY_LEFT = 1
+    FZ_LEFT = 2
+    MX_LEFT = 3
+    MY_LEFT = 4
+    MZ_LEFT = 5
+    A6 = 6
     A7 = 7
-    A8 = 8  # Fx droit
-    A9 = 9  # Fy droit
-    A10 = 10  # Fz droit
+    FX_RIGHT = 8
+    FY_RIGHT = 9
+    FZ_RIGHT = 10
     A11 = 11
     A12 = 12
     A13 = 13
@@ -28,8 +44,8 @@ class DataType(Enum):
     A15 = 15
     A16 = 16
     A17 = 17
-    A18 = 18  # Ange du pédalier en radiant
-    A19 = 19  # Temps
+    PEDAL_ANGLE = 18
+    TIME = 19
     A20 = 20
     A21 = 21
     A22 = 22
@@ -45,10 +61,10 @@ class DataType(Enum):
     A32 = 32
     A33 = 33
     A34 = 34
-    A35 = 35  # vitesse du pédalier positif vers l'avant
-    A36 = 36  # puissance pedale gauche
-    A37 = 37  # puissance pedale droite
-    A38 = 38  # puissance totale
+    PEDALLING_SPEED = 35
+    POWER_LEFT = 36
+    POWER_RIGHT = 37
+    POWER_TOTAL = 38
     A39 = 39
     A40 = 40
     A41 = 41

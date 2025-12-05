@@ -29,64 +29,8 @@ def main():
     data_collector = DataCollector(device)
 
     # Either start a live plot...
-    data_collector.show_live([DataType.A0, DataType.A1])
-    # FGx = 0 Force vers l'avant lorsque la pédale a le fil par en bas
-
-    # data_collector.show_live(DataType.FGy)
-    # FGy = 1 Force sortant du pédalier vers la gauche
-
-    # data_collector.show_live(DataType.FGz)
-    # FGz = 2
-
-    # data_collector.show_live(DataType.FDx)
-    # FDx = 3 Moment x
-
-    # data_collector.show_live(DataType.FDy)
-    # FDy = 4 Moment y
-
-    # data_collector.show_live(DataType.FDz)
-    # FDz = 5 Moment z
-
-    # data_collector.show_live(DataType.MGx)
-    # MGx = 6  ?
-
-    # data_collector.show_live(DataType.A19)
-
-    # data_collector.show_live(DataType.MGy)
-    # MGy = 7 # Angle ?
-
-    # data_collector.show_live(DataType.A8)
-    # MGz = 8  Fx droit
-
-    # data_collector.show_live(DataType.A9)
-    # MDx = 9  # Fy droit
-
-    # data_collector.show_live(DataType.A10)
-    # MDy = 10  Fz droit
-
-    # data_collector.show_live(DataType.A11)
-    # MDz = 11
-
-    # data_collector.show_live(DataType.A12)
-    # TG = 12
-
-    # data_collector.show_live(DataType.A13)
-    # TD = 13  Moment z positif en sens anti horaire (vers l'intérieur)
-
-    # data_collector.show_live(DataType.A18)
-    # 18 ange du pédalier en radiant
-
-    # data_collector.show_live(DataType.A35)
-    # 35 vitesse du pédalier positif vers l'avant
-
-    # data_collector.show_live(DataType.A37)
-    # 37  puissance pedale droite
-
-    data_collector.show_live(DataType.A38)
-    # 38 puissance
-
-    # data_collector.show_live(DataType.A41)
-    # 41  ?
+    data_collector.show_live(DataType.POWER_TOTAL)  # Single value plot
+    data_collector.show_live([DataType.FX_LEFT, DataType.FX_RIGHT])  # Multiple values plot
 
     # ...or just start collecting data in the background
     # data_collector.start()
