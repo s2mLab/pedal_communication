@@ -24,13 +24,13 @@ def main():
     # local TCP mock device that simulates a real pedal device.
     device = TcpPedalDevice()
     while not device.connect():
-        time.sleep(0.1)
+        time.sleep(0.5)
 
     data_collector = DataCollector(device)
 
     # Either start a live plot...
     data_collector.show_live(DataType.POWER_TOTAL)  # Single value plot
-    data_collector.show_live([DataType.FX_LEFT, DataType.FX_RIGHT])  # Multiple values plot
+    # data_collector.show_live([DataType.FX_LEFT, DataType.FX_RIGHT])  # Multiple values plot
 
     # ...or just start collecting data in the background
     # data_collector.start()

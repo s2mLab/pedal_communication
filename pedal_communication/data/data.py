@@ -7,6 +7,7 @@ from typing import Iterable
 import numpy as np
 
 from ..devices.generic_device import GenericDevice
+from ..misc import classproperty
 
 
 class DataType(Enum):
@@ -91,9 +92,8 @@ class Data:
     def timestamp(self) -> np.ndarray:
         return self._data[:, 0]
 
-    @property
-    @staticmethod
-    def columns_count(self) -> int:
+    @classproperty
+    def columns_count(cls) -> int:
         return 42
 
     def __getitem__(self, time_indices: int | slice | tuple | list) -> "Data":

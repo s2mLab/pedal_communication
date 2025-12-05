@@ -1,12 +1,12 @@
-from pedal_communication.mockers import UdpPedalDeviceMocker
+import logging
+
+from pedal_communication.mockers import TcpPedalDeviceMocker
 
 
 def main():
-    mocker = UdpPedalDeviceMocker()
-
-    while True:
-        # Restart the mocker indefinitely if it disconnects
-        mocker.run()
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    mocker = TcpPedalDeviceMocker()
+    mocker.run()
 
 
 if __name__ == "__main__":

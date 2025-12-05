@@ -114,7 +114,11 @@ class UdpPedalDeviceMocker:
                 raise ConnectionError("Unsupported control protocol version")
 
             # Get the payload (empty string if payload_len == 0)
-            payload = recv_exact(self._control_socket, payload_len)
+            try:
+                payload = recv_exact(self._control_socket, payload_len)
+            except ConnectionError:
+                _logger.info("Client disconnected.")
+                continue
 
             # dispatch based on opcode
             if operational_code == UdpProtocolConstants.OperationalCode.SET_CONFIG.value:

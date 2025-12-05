@@ -5,8 +5,12 @@ import time
 
 import numpy as np
 
+from ..data.data import Data
 from ..devices.tpc_communication_protocol import TcpRequestProtocol
 from ..misc import recv_exact
+
+
+_logger = logging.getLogger(__name__)
 
 
 class TcpPedalDeviceMocker:
@@ -23,6 +27,10 @@ class TcpPedalDeviceMocker:
 
         self._request_protocol_cache = TcpRequestProtocol(request_type=TcpRequestProtocol.RequestType.NORMAL)
 
+    @property
+    def is_connected(self) -> bool:
+        return self._connection is not None
+
     def run(self):
         """
         Start the mock device server.
@@ -30,36 +38,35 @@ class TcpPedalDeviceMocker:
         self._start_listening()
 
     def _listen_command(self) -> bool:
-        logger = logging.getLogger(__name__)
-        if self._connection is None:
+        if not self.is_connected:
             return False
 
         # Wait synchronously for client commands
-        int_size = struct.calcsize("!i")
-        commands_length = recv_exact(self._connection, int_size)
-        if not commands_length:
-            logger.info("Client disconnected.")
+        try:
+            int_size = struct.calcsize("!i")
+            commands_length = recv_exact(self._connection, int_size)
+            if not commands_length:
+                raise Exception("Client disconnected.")
+            commands_length = struct.unpack("!i", commands_length)[0]
+
+            commands_data = recv_exact(self._connection, commands_length)
+            if not commands_data:
+                raise Exception("Client disconnected.")
+
+            commands = struct.unpack(f"!{commands_length}b", commands_data)
+            commands = [list(commands[i : i + 2]) for i in range(0, len(commands), 2)]
+            if commands != self._request_protocol_cache._commands:
+                _logger.info(f"Unexpected commands received")
+                return False
+
+            return True
+
+        except:
             self._stop_listening()
             return False
-        commands_length = struct.unpack("!i", commands_length)[0]
-
-        commands_data = recv_exact(self._connection, commands_length)
-        if not commands_data:
-            logger.info("Client disconnected.")
-            self._stop_listening()
-            return False
-
-        commands = struct.unpack(f"!{commands_length}b", commands_data)
-        commands = [list(commands[i : i + 2]) for i in range(0, len(commands), 2)]
-        if commands != self._request_protocol_cache._commands:
-            logger.info(f"Unexpected commands received")
-            return False
-
-        return True
 
     def _serve_data(self):
-        logger = logging.getLogger(__name__)
-        if self._connection is None:
+        if not self.is_connected:
             return
 
         # Create a time vector based on elapsed time
@@ -68,8 +75,8 @@ class TcpPedalDeviceMocker:
         ratio = time_elapsed // (1 / self._frequency * len(self._time_vector_template))
         time_vector = self._time_vector_template + ratio * time_increments
 
-        # Simulate some random data (time_vector length x 14 channels)
-        data = np.concatenate((time_vector[:, None], np.random.rand(len(time_vector), 14)), axis=1)
+        # Simulate some random data (time_vector length x N channels)
+        data = np.concatenate((time_vector[:, None], np.random.rand(len(time_vector), Data.columns_count)), axis=1)
         data_bytes = b""
         for row in data.T:
             for value in row:
@@ -79,42 +86,42 @@ class TcpPedalDeviceMocker:
         try:
             self._connection.sendall(data_length + data_bytes)
         except BrokenPipeError:
-            logger.info("Client disconnected.")
+            _logger.info("Client disconnected.")
             self._stop_listening()
 
     def _start_listening(self):
-        logger = logging.getLogger(__name__)
-        try:
-            logger.info(f"DeviceMock listening on port {self._port}")
+        self._is_running = True
+        while self._is_running:
+            try:
+                if not self.is_connected:
+                    _logger.info(f"DeviceMock listening on port {self._port}")
+                    self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self._socket.bind(("localhost", self._port))
+                    self._socket.listen(1)
+                    self._connection, addr = self._socket.accept()
+                    _logger.info(f"Connection from {addr} has been established!")
 
-            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._socket.bind(("localhost", self._port))
-            self._socket.listen(1)
-            self._connection, addr = self._socket.accept()
-            logger.info(f"Connection from {addr} has been established!")
-
-            self._is_running = True
-            while self._is_running:
                 has_command = self._listen_command()
                 if not has_command:
                     continue
                 self._serve_data()
 
-        except KeyboardInterrupt:
-            logger.info("Shutting down DeviceMocker.")
-        finally:
-            self._stop_listening()
+            except KeyboardInterrupt:
+                _logger.info("Shutting down DeviceMocker.")
+                self._stop_listening()
+                self._is_running = False
+
+            except:
+                _logger.exception("Error in DeviceMocker:")
+                self._stop_listening()
 
     def _stop_listening(self):
-        logger = logging.getLogger(__name__)
-        self._is_running = False
-
-        if self._connection:
+        if self._connection is not None:
             self._connection.close()
-            logger.info("Connection closed.")
+            _logger.info("Connection closed.")
         self._connection = None
 
-        if self._socket:
+        if self._socket is not None:
             self._socket.close()
-            logger.info("DeviceMock stopped listening.")
+            _logger.info("DeviceMock stopped listening.")
         self._socket = None

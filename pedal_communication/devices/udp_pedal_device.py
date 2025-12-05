@@ -130,20 +130,23 @@ class UdpPedalDevice(GenericDevice):
 
     def _parse_command_response(self) -> Tuple[bool, bytes] | bool:
         # read response
-        header = recv_exact(self._control_socket, UdpProtocolConstants.control_header_len)
-        magic, version, operational_code, payload_len = struct.unpack(
-            UdpProtocolConstants.control_header_format, header
-        )
-        # Sanity check
-        if magic != UdpProtocolConstants.control_magic_code or version != UdpProtocolConstants.control_version:
-            _logger.error(f"Unsupported control protocol version: {version}")
-            return False
+        try:
+            header = recv_exact(self._control_socket, UdpProtocolConstants.control_header_len)
+            magic, version, operational_code, payload_len = struct.unpack(
+                UdpProtocolConstants.control_header_format, header
+            )
+            # Sanity check
+            if magic != UdpProtocolConstants.control_magic_code or version != UdpProtocolConstants.control_version:
+                _logger.error(f"Unsupported control protocol version: {version}")
+                return False
 
-        # Get the payload (empty string if payload_len == 0)
-        payload = recv_exact(self._control_socket, payload_len)
-        _logger.info(f"SET_CONFIG response opcode={operational_code} payload={payload}")
+            # Get the payload (empty string if payload_len == 0)
+            payload = recv_exact(self._control_socket, payload_len)
+            _logger.info(f"SET_CONFIG response opcode={operational_code} payload={payload}")
 
-        return operational_code == UdpProtocolConstants.OperationalCode.ACK.value, payload
+            return operational_code == UdpProtocolConstants.OperationalCode.ACK.value, payload
+        except:
+            return False, b""
 
     def _listen_udp_data(self) -> None:
         """
