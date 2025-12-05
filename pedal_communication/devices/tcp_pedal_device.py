@@ -7,7 +7,7 @@ from .generic_device import GenericDevice
 from .communication_protocol import AnswerProtocol, RequestProtocol
 
 
-class PedalDevice(GenericDevice):
+class TcpPedalDevice(GenericDevice):
     def __init__(
         self,
         host: str = "localhost",

@@ -8,7 +8,7 @@ import numpy as np
 from ..devices.communication_protocol import RequestProtocol
 
 
-class PedalDeviceMocker:
+class TcpPedalDeviceMocker:
     # A simple mock device that simulates basic behavior.
     def __init__(self, port: int = 6000):
         self._port = port

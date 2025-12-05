@@ -1,8 +1,8 @@
-from pedal_communication.mockers import PedalDeviceMocker
+from pedal_communication.mockers import TcpPedalDeviceMocker
 
 
 def main():
-    mocker = PedalDeviceMocker()
+    mocker = TcpPedalDeviceMocker()
 
     while True:
         # Restart the mocker indefinitely if it disconnects
