@@ -1,7 +1,7 @@
 import time
 import logging
 
-from pedal_communication import TcpPedalDevice, DataType, DataCollector
+from pedal_communication import UdpPedalDevice, DataType, DataCollector
 
 
 def do_something(data_collector: DataCollector):
@@ -22,7 +22,7 @@ def main():
 
     # Connect to the device. If no real devices are available, one can run the script `mocked_device.py` to create a
     # local TCP mock device that simulates a real pedal device.
-    device = TcpPedalDevice()
+    device = UdpPedalDevice()
     while not device.connect():
         time.sleep(0.5)
 

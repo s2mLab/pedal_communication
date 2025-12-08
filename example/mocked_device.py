@@ -1,11 +1,11 @@
 import logging
 
-from pedal_communication.mockers import TcpPedalDeviceMocker
+from pedal_communication.mockers import UdpPedalDeviceMocker
 
 
 def main():
     logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-    mocker = TcpPedalDeviceMocker()
+    mocker = UdpPedalDeviceMocker()
 
     try:
         mocker.run()

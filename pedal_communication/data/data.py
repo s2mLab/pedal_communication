@@ -94,7 +94,11 @@ class Data:
 
     @classproperty
     def columns_count(cls) -> int:
-        return 42
+        return len(DataType)
+
+    @property
+    def is_empty(self) -> bool:
+        return self._data.shape[0] == 0
 
     def __getitem__(self, time_indices: int | slice | tuple | list) -> "Data":
         return Data(data=self._data[time_indices, :])
@@ -169,6 +173,8 @@ class DataCollector(threading.Thread):
 
             starting_index = len(self._data.timestamp) - window_len if len(self._data.timestamp) > window_len else 0
             data = self._data[starting_index:]
+            if data.is_empty:
+                return
 
             for curve, data_index in zip(curves, data_indices):
                 curve.setData(data.timestamp, data.values[:, data_index])

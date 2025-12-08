@@ -25,12 +25,10 @@ def parse_control_header(data: bytes):
 
 
 class UdpPedalDevice(GenericDevice):
-    def __init__(
-        self, server_host: str = "localhost", control_port: int = 6000, data_port: int = 6001, *args, **kwargs
-    ):
+    def __init__(self, _host: str = "localhost", control_port: int = 6000, data_port: int = 5999, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
-        self._server_host = server_host
+        self._host = _host
         self._control_port = control_port
         self._data_port = data_port
 
@@ -51,14 +49,14 @@ class UdpPedalDevice(GenericDevice):
 
     @property
     def host(self) -> str:
-        return self._server_host
+        return self._host
 
     @property
     def port(self) -> int:
         return self._control_port
 
     def connect(self) -> bool:
-        _logger.debug(f"Attempting to connect to TCP device at {self._server_host}:{self._control_port}")
+        _logger.debug(f"Attempting to connect to TCP device at {self._host}:{self._control_port}")
         if self.is_connected:
             _logger.debug("Already connected to TCP device.")
             return True  # Already connected
@@ -66,18 +64,20 @@ class UdpPedalDevice(GenericDevice):
         # 1) Connect TCP control channel
         self._control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            self._control_socket.connect((self._server_host, self._control_port))
+            self._control_socket.connect((self._host, self._control_port))
         except socket.error:
-            _logger.error(f"Failed to connect to TCP device at {self._host}:{self._port}")
+            _logger.error(f"Failed to connect to TCP device at {self._host}:{self._control_port}")
             self._control_socket = None
+            return
 
         # 2) Open UDP socket to receive data
         self._data_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._data_socket.bind(("0.0.0.0", self._data_port))
-        self._data_socket.settimeout(2.0)
+        self._data_socket.settimeout(0.1)
+        self._data_socket.sendto(b"", (self._host, self._data_port))
 
-        # 3) Send SET_CONFIG (tell server frequency, channels, which UDP port to stream to)
-        is_success, _ = self.send(UdpConfigurationProtocol(udp_port=self._data_port))
+        # 3) Send SET_CONFIG (tell server frequency, channels, which UDP port to stream to, note this is optional
+        # for "all channels" as it is the default value)
+        is_success, _ = self.send(UdpConfigurationProtocol(channels=None))  # All channels
         if not is_success:
             _logger.error("Failed to send configuration to UDP device.")
             self.disconnect()
@@ -93,11 +93,10 @@ class UdpPedalDevice(GenericDevice):
         return True
 
     def disconnect(self) -> bool:
-        _logger.debug(f"Disconnecting from {self._server_host}")
+        _logger.debug(f"Disconnecting from {self._host}")
         self.send(UdpCommandProtocol(UdpProtocolConstants.OperationalCode.STOP))
 
         if self._control_socket is not None:
-            _logger = logging.getLogger(__name__)
             self._control_socket.close()
             self._control_socket = None
 
@@ -155,26 +154,38 @@ class UdpPedalDevice(GenericDevice):
         """
 
         previous_sequence_id = None
-        try:
-            while not self._data_stop_event.is_set():
+        while not self._data_stop_event.is_set():
+            try:
+                if not self.is_connected:
+                    if not self.connect():
+                        time.sleep(0.1)
+                        continue
+
                 # Wait until connected
                 if self._data_socket is None:
                     time.sleep(0.1)
                     continue
-
+                print("coucou1")
                 data_packets, _ = self._data_socket.recvfrom(65536)
+                print("coucou2")
                 data, previous_sequence_id = UdpResponseProtocol.deserialize(
                     data_packets, previous_sequence_id=previous_sequence_id
                 )
                 if data is not None:
                     self._data_last_received = data
 
-        except:
-            pass
+            except socket.timeout:
+                self.disconnect()
+
+            except Exception as e:
+                _logger.debug(f"No UDP data received: {e}")
+                pass
 
         _logger.info("UDP data listener thread exiting")
 
     def get_last_data(self) -> np.ndarray | None:
-        if not self.is_connected:
+        if not self.is_connected or self._data_last_received is None:
             return None
-        return self._data_last_received
+        data = self._data_last_received
+        self._data_last_received = None
+        return data

@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 class TcpPedalDeviceMocker(PedalDeviceMocker):
     # A simple mock device that simulates basic behavior.
     def __init__(self, port: int = 6000):
-        self._has_welcome_user = False
+        self._is_socket_initialized = False
 
         self._port = port
         self._socket: socket.socket = None
@@ -45,6 +45,7 @@ class TcpPedalDeviceMocker(PedalDeviceMocker):
         Dispose the mock device server. After disposing, the server cannot be restarted.
         """
         self._stop_listening()
+        self._socket = None
         self._is_running = False
 
     def _listen_command(self) -> bool:
@@ -104,16 +105,19 @@ class TcpPedalDeviceMocker(PedalDeviceMocker):
         while self._is_running:
             try:
                 if not self.is_connected:
-                    if not self._has_welcome_user:
+                    if not self._is_socket_initialized:
                         _logger.info(f"DeviceMock listening on port {self._port}")
-                        self._has_welcome_user = True
-                    self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    self._socket.bind(("localhost", self._port))
-                    self._socket.listen(1)
-                    self._socket.settimeout(0.1)
+                        self._is_socket_initialized = True
+                        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        self._socket.bind(("localhost", self._port))
+                        self._socket.listen(1)
+                        self._socket.settimeout(0.1)
                     try:
                         self._connection, addr = self._socket.accept()
                     except socket.timeout:
+                        continue
+                    except:
+                        _logger.exception("Error accepting connection")
                         continue
                     _logger.info(f"Connection from {addr} has been established!")
 
@@ -136,6 +140,5 @@ class TcpPedalDeviceMocker(PedalDeviceMocker):
         if self._socket is not None:
             self._socket.close()
             _logger.info("DeviceMock stopped listening.")
-        self._socket = None
 
-        self._has_welcome_user = False
+        self._is_socket_initialized = False

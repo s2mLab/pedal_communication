@@ -33,7 +33,6 @@ ControlPayload (variable length)
 Json-encoded command parameters (e.g., configuration settings)
 UdpProtocolConstants.OperationalCode.SET_CONFIG:
 {
-    "udp_port": 6001            // UDP port for data streaming
     "frequency": 50.0,          // Sampling frequency in Hz
     "sample_per_block": 10,     // Samples per block
     "channels": list<int>[],    // A list of the channel's code to activate
@@ -103,16 +102,14 @@ class UdpCommandProtocol(UdpRequestProtocol):
 
     @property
     def serialized(self) -> bytes:
-        command = {
-            "udp_port": self._udp_port,
-        }
+        command = {}
         payload = json.dumps(command).encode("utf-8")
 
         header = struct.pack(
             UdpProtocolConstants.control_header_format,
             UdpProtocolConstants.control_magic_code,
             UdpProtocolConstants.control_version,
-            UdpProtocolConstants.OperationalCode.SET_CONFIG.value,
+            self._operational_code.value,
             len(payload),
         )
 
@@ -170,14 +167,10 @@ class UdpConfigurationProtocol(UdpRequestProtocol):
     def __init__(
         self,
         channels: Channels | Iterable[Channels] = None,
-        udp_port: int = None,
     ):
         """
         Prepare a configuration to the UDP device. If channels is None, all available channels are requested.
         """
-
-        self._udp_port = udp_port
-
         if channels is None:
             channels = list(UdpConfigurationProtocol.Channels)
         elif isinstance(channels, UdpConfigurationProtocol.Channels):
@@ -187,8 +180,7 @@ class UdpConfigurationProtocol(UdpRequestProtocol):
     @property
     def serialized(self) -> bytes:
         configuration = {
-            "udp_port": self._udp_port,
-            "channels": self._channels,
+            "channels": [channel.value for channel in self._channels],
             "frequency": None,
             "sample_per_block": None,
         }
@@ -232,6 +224,9 @@ class UdpResponseProtocol:
 
         if previous_sequence_id > sequence_id:
             _logger.warning(f"Out of order packet: got {sequence_id} expected > {previous_sequence_id}")
+            return None, previous_sequence_id
+        if previous_sequence_id == sequence_id:
+            # duplicate packet
             return None, previous_sequence_id
 
         # unpack all doubles

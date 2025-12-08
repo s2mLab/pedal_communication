@@ -24,7 +24,7 @@ class TcpPedalDevice(GenericDevice):
         self._request = TcpRequestProtocol(request_type=request_type)
         self._socket: socket.socket | None = None
 
-        self._previous_last_timestamp: float | None = None
+        self._previous_last_timestamp: float = None
 
     @property
     def is_connected(self) -> bool:
@@ -65,6 +65,7 @@ class TcpPedalDevice(GenericDevice):
             self._socket.close()
             self._socket = None
 
+        self._previous_last_timestamp = None
         return self._socket is None
 
     def send(self, data: TcpRequestProtocol) -> bool:
@@ -79,7 +80,8 @@ class TcpPedalDevice(GenericDevice):
 
     def get_last_data(self) -> np.ndarray | None:
         if self._socket is None:
-            return None
+            if not self.connect():
+                return None
 
         # First, we need to send the formating of the data
         self.send(data=self._request)
@@ -105,6 +107,7 @@ class TcpPedalDevice(GenericDevice):
             self._previous_last_timestamp = last_timestamp
 
             return output
-
-        except socket.error:
+        except socket.error as e:
+            if isinstance(e, ConnectionResetError):
+                self.disconnect()
             return None
