@@ -5,6 +5,7 @@ import time
 
 import numpy as np
 
+from .pedal_device_mocker import PedalDeviceMocker
 from ..data.data import Data
 from ..devices.tpc_communication_protocol import TcpRequestProtocol
 from ..misc import recv_exact
@@ -13,9 +14,11 @@ from ..misc import recv_exact
 _logger = logging.getLogger(__name__)
 
 
-class TcpPedalDeviceMocker:
+class TcpPedalDeviceMocker(PedalDeviceMocker):
     # A simple mock device that simulates basic behavior.
     def __init__(self, port: int = 6000):
+        self._has_welcome_user = False
+
         self._port = port
         self._socket: socket.socket = None
         self._connection: socket.socket = None
@@ -36,6 +39,13 @@ class TcpPedalDeviceMocker:
         Start the mock device server.
         """
         self._start_listening()
+
+    def dispose(self):
+        """
+        Dispose the mock device server. After disposing, the server cannot be restarted.
+        """
+        self._stop_listening()
+        self._is_running = False
 
     def _listen_command(self) -> bool:
         if not self.is_connected:
@@ -94,23 +104,25 @@ class TcpPedalDeviceMocker:
         while self._is_running:
             try:
                 if not self.is_connected:
-                    _logger.info(f"DeviceMock listening on port {self._port}")
+                    if not self._has_welcome_user:
+                        _logger.info(f"DeviceMock listening on port {self._port}")
+                        self._has_welcome_user = True
                     self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self._socket.bind(("localhost", self._port))
                     self._socket.listen(1)
-                    self._connection, addr = self._socket.accept()
+                    self._socket.settimeout(0.1)
+                    try:
+                        self._connection, addr = self._socket.accept()
+                    except socket.timeout:
+                        continue
                     _logger.info(f"Connection from {addr} has been established!")
 
                 has_command = self._listen_command()
                 if not has_command:
                     continue
                 self._serve_data()
-
             except KeyboardInterrupt:
-                _logger.info("Shutting down DeviceMocker.")
-                self._stop_listening()
-                self._is_running = False
-
+                raise KeyboardInterrupt()
             except:
                 _logger.exception("Error in DeviceMocker:")
                 self._stop_listening()
@@ -125,3 +137,5 @@ class TcpPedalDeviceMocker:
             self._socket.close()
             _logger.info("DeviceMock stopped listening.")
         self._socket = None
+
+        self._has_welcome_user = False

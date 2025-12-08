@@ -8,13 +8,14 @@ from typing import Tuple, List
 
 import numpy as np
 
+from .pedal_device_mocker import PedalDeviceMocker
 from ..devices.udp_communication_protocol import UdpProtocolConstants
 from ..misc import recv_exact
 
 _logger = logging.getLogger("DeviceMock")
 
 
-class UdpPedalDeviceMocker:
+class UdpPedalDeviceMocker(PedalDeviceMocker):
     """
     See the UDP communication protocol specification for details:
     """
