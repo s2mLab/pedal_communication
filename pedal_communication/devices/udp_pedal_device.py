@@ -156,10 +156,11 @@ class UdpPedalDevice(GenericDevice):
         previous_sequence_id = None
         while not self._data_stop_event.is_set():
             try:
-                if not self.is_connected:
-                    if not self.connect():
-                        time.sleep(0.1)
-                        continue
+                # TODO Make reconnection works
+                # if not self.is_connected:
+                #     if not self.connect():
+                #         time.sleep(0.1)
+                #         continue
 
                 # Wait until connected
                 if self._data_socket is None:
