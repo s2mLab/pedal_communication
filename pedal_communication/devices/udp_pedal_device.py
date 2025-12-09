@@ -34,6 +34,7 @@ class UdpPedalDevice(GenericDevice):
 
         self._control_socket: socket.socket = None
         self._data_socket: socket.socket = None
+        self._should_auto_reconnect = False
 
         self._data_last_received: np.ndarray = None
         self._data_stop_event = threading.Event()
@@ -90,6 +91,8 @@ class UdpPedalDevice(GenericDevice):
             self.disconnect()
             return False
 
+        self._should_auto_reconnect = True
+        _logger.info(f"Successfully connected to UDP device at {self._host}:{self._control_port}")
         return True
 
     def disconnect(self) -> bool:
@@ -154,21 +157,19 @@ class UdpPedalDevice(GenericDevice):
         """
 
         previous_sequence_id = None
+        last_data_received_time = time.time()
         while not self._data_stop_event.is_set():
             try:
-                # TODO Make reconnection works
-                # if not self.is_connected:
-                #     if not self.connect():
-                #         time.sleep(0.1)
-                #         continue
+                if not self.is_connected:
+                    if not self._should_auto_reconnect or not self.connect():
+                        time.sleep(0.1)
+                        continue
+                    previous_sequence_id = None
+                    last_data_received_time = time.time()
 
-                # Wait until connected
-                if self._data_socket is None:
-                    time.sleep(0.1)
-                    continue
-                print("coucou1")
                 data_packets, _ = self._data_socket.recvfrom(65536)
-                print("coucou2")
+                last_data_received_time = time.time()
+
                 data, previous_sequence_id = UdpResponseProtocol.deserialize(
                     data_packets, previous_sequence_id=previous_sequence_id
                 )
@@ -176,7 +177,9 @@ class UdpPedalDevice(GenericDevice):
                     self._data_last_received = data
 
             except socket.timeout:
-                self.disconnect()
+                if time.time() - last_data_received_time >= 1:  # 1 second without data
+                    _logger.warning("No UDP data received for 1 second, disconnecting...")
+                    self.disconnect()
 
             except Exception as e:
                 _logger.debug(f"No UDP data received: {e}")
