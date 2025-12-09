@@ -288,7 +288,7 @@ class UdpPedalDeviceMocker(PedalDeviceMocker):
                 # Fetch the current data (this should be thread-safe)
                 data = np.copy(self._data_simulator_current_data)
 
-                # If no new data, wait are recorded, wait a bit
+                # If no new data were recorded, wait a bit
                 if last_frame_timestamp == data[-1, 0]:
                     # This could be based on a OnNewData event to make sure data are served as soon as available
                     time.sleep(0.001)
